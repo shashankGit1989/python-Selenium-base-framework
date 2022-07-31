@@ -1,0 +1,26 @@
+test_buy_product.py::BuyProduct::test_buy_product
+--------------------------------------------------------------------
+Last Page: https://practice.automationbro.com/cart/
+  Browser: chrome (103.0.5060.134 / headless)
+   Driver: chromedriver (103.0.5060.134)
+Timestamp: 1659274664  (Unix Timestamp)
+     Date: Sunday, 31 July 2022
+     Time: 7:07:44 PM  (India Standard Time, UTC+05:30)
+--------------------------------------------------------------------
+Traceback: File "C:\Users\shash\AppData\Local\Programs\Python\Python310\lib\unittest\case.py", line 591, in run
+    self._callTestMethod(testMethod)
+  File "C:\Users\shash\AppData\Local\Programs\Python\Python310\lib\unittest\case.py", line 549, in _callTestMethod
+    method()
+  File "C:\Users\shash\PycharmProjects\pythonSelenium\tests\test_buy_product.py", line 24, in test_buy_product
+    self.assert_text('$000.00', Cart.total_cart_price)
+  File "C:\Users\shash\PycharmProjects\pythonSelenium\venv\lib\site-packages\seleniumbase\fixtures\base_case.py", line 10294, in assert_text
+    self.wait_for_text_visible(text, selector, by=by, timeout=timeout)
+  File "C:\Users\shash\PycharmProjects\pythonSelenium\venv\lib\site-packages\seleniumbase\fixtures\base_case.py", line 10219, in wait_for_text_visible
+    return page_actions.wait_for_text_visible(
+  File "C:\Users\shash\PycharmProjects\pythonSelenium\venv\lib\site-packages\seleniumbase\fixtures\page_actions.py", line 535, in wait_for_text_visible
+    timeout_exception(TextNotVisibleException, message)
+  File "C:\Users\shash\PycharmProjects\pythonSelenium\venv\lib\site-packages\seleniumbase\fixtures\page_actions.py", line 186, in timeout_exception
+    raise exc(msg)
+Exception: Message: 
+ Expected text substring {$000.00} for {//div[@class='cart_totals' or @class='cart_totals ']//tr[2]//bdi} was not visible after 7 seconds!
+ (The string searched was {$800.00})

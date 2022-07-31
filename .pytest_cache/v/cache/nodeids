@@ -1,0 +1,8 @@
+[
+  "tests/test_buy_product.py::BuyProduct::test_Find_Product",
+  "tests/test_buy_product.py::BuyProduct::test_buy_product",
+  "tests/test_contact.py::Contacts::test_fill_contact_details",
+  "tests/test_home.py::HomeTest::test_home_page",
+  "tests/test_home.py::HomeTest::test_menu_links",
+  "tests/test_upload_file.py::FileUpload::test_upload"
+]

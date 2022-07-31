@@ -1,0 +1,4 @@
+{
+  "test_upload_file.py::FileUpload::test_upload": true,
+  "test_contact.py::Contacts::test_fill_contact_details": true
+}

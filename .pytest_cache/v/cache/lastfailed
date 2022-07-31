@@ -1,0 +1,5 @@
+{
+  "tests/test_contact.py::Contacts::test_fill_contact_details": true,
+  "tests/test_buy_product.py::BuyProduct::test_buy_product": true,
+  "tests/test_home.py::HomeTest::test_home_page": true
+}

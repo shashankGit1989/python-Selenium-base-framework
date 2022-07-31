@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function find_all(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sort_column(elem) {
+    toggle_sort_states(elem);
+    var colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    var key;
+    if (elem.classList.contains('numeric')) {
+        key = key_num;
+    } else if (elem.classList.contains('result')) {
+        key = key_result;
+    } else {
+        key = key_alpha;
+    }
+    sort_table(elem, key(colIndex));
+}
+
+function show_all_extras() {
+    find_all('.col-result').forEach(show_extras);
+}
+
+function hide_all_extras() {
+    find_all('.col-result').forEach(hide_extras);
+}
+
+function show_extras(colresult_elem) {
+    var extras = colresult_elem.parentNode.nextElementSibling;
+    var expandcollapse = colresult_elem.firstElementChild;
+    extras.classList.remove("collapsed");
+    expandcollapse.classList.remove("expander");
+    expandcollapse.classList.add("collapser");
+}
+
+function hide_extras(colresult_elem) {
+    var extras = colresult_elem.parentNode.nextElementSibling;
+    var expandcollapse = colresult_elem.firstElementChild;
+    extras.classList.add("collapsed");
+    expandcollapse.classList.remove("collapser");
+    expandcollapse.classList.add("expander");
+}
+
+function show_filters() {
+    var filter_items = document.getElementsByClassName('filter');
+    for (var i = 0; i < filter_items.length; i++)
+        filter_items[i].hidden = false;
+}
+
+function add_collapse() {
+    // Add links for show/hide all
+    var resulttable = find('table#results-table');
+    var showhideall = document.createElement("p");
+    showhideall.innerHTML = '<a href="javascript:show_all_extras()">Show all details</a> / ' +
+                            '<a href="javascript:hide_all_extras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    find_all('.col-result').forEach(function(elem) {
+        var collapsed = get_query_parameter('collapsed') || 'Passed';
+        var extras = elem.parentNode.nextElementSibling;
+        var expandcollapse = document.createElement("span");
+        if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add("collapsed");
+            expandcollapse.classList.add("expander");
+        } else {
+            expandcollapse.classList.add("collapser");
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener("click", function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains("collapsed")) {
+                show_extras(event.currentTarget);
+            } else {
+                hide_extras(event.currentTarget);
+            }
+        });
+    })
+}
+
+function get_query_parameter(name) {
+    var match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () {
+    reset_sort_headers();
+
+    add_collapse();
+
+    show_filters();
+
+    sort_column(find('.initial-sort'));
+
+    find_all('.sortable').forEach(function(elem) {
+        elem.addEventListener("click",
+                              function(event) {
+                                  sort_column(elem);
+                              }, false)
+    });
+
+};
+
+function sort_table(clicked, key_func) {
+    var rows = find_all('.results-table-row');
+    var reversed = !clicked.classList.contains('asc');
+    var sorted_rows = sort(rows, key_func, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    var thead = document.getElementById("results-table-head");
+    document.getElementById('results-table').remove();
+    var parent = document.createElement("table");
+    parent.id = "results-table";
+    parent.appendChild(thead);
+    sorted_rows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName("BODY")[0].appendChild(parent);
+}
+
+function sort(items, key_func, reversed) {
+    var sort_array = items.map(function(item, i) {
+        return [key_func(item), i];
+    });
+
+    sort_array.sort(function(a, b) {
+        var key_a = a[0];
+        var key_b = b[0];
+
+        if (key_a == key_b) return 0;
+
+        if (reversed) {
+            return (key_a < key_b ? 1 : -1);
+        } else {
+            return (key_a > key_b ? 1 : -1);
+        }
+    });
+
+    return sort_array.map(function(item) {
+        var index = item[1];
+        return items[index];
+    });
+}
+
+function key_alpha(col_index) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[col_index].firstChild.data.toLowerCase();
+    };
+}
+
+function key_num(col_index) {
+    return function(elem) {
+        return parseFloat(elem.childNodes[1].childNodes[col_index].firstChild.data);
+    };
+}
+
+function key_result(col_index) {
+    return function(elem) {
+        var strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+                       'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[col_index].firstChild.data);
+    };
+}
+
+function reset_sort_headers() {
+    find_all('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    find_all('.sortable').forEach(function(elem) {
+        var icon = document.createElement("div");
+        icon.className = "sort-icon";
+        icon.textContent = "vvv";
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove("desc", "active");
+        elem.classList.add("asc", "inactive");
+    });
+}
+
+function toggle_sort_states(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        reset_sort_headers();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function is_all_rows_hidden(value) {
+  return value.hidden == false;
+}
+
+function filter_table(elem) {
+    var outcome_att = "data-test-result";
+    var outcome = elem.getAttribute(outcome_att);
+    class_outcome = outcome + " results-table-row";
+    var outcome_rows = document.getElementsByClassName(class_outcome);
+
+    for(var i = 0; i < outcome_rows.length; i++){
+        outcome_rows[i].hidden = !elem.checked;
+    }
+
+    var rows = find_all('.results-table-row').filter(is_all_rows_hidden);
+    var all_rows_hidden = rows.length == 0 ? true : false;
+    var not_found_message = document.getElementById("not-found-message");
+    not_found_message.hidden = !all_rows_hidden;
+}
+</script>
+    <h1>customrReport.html</h1>
+    <p>Report generated on 31-Jul-2022 at 19:01:36 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v2.0.1</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>JAVA_HOME</td>
+        <td>C:\Program Files\Java\jdk-17.0.4</td></tr>
+      <tr>
+        <td>Packages</td>
+        <td>{&apos;pytest&apos;: &apos;7.1.2&apos;, &apos;py&apos;: &apos;1.11.0&apos;, &apos;pluggy&apos;: &apos;1.0.0&apos;}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Windows-10-10.0.19044-SP0</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{&apos;forked&apos;: &apos;1.4.0&apos;, &apos;html&apos;: &apos;2.0.1&apos;, &apos;metadata&apos;: &apos;2.0.2&apos;, &apos;ordering&apos;: &apos;0.6&apos;, &apos;rerunfailures&apos;: &apos;10.2&apos;, &apos;xdist&apos;: &apos;2.5.0&apos;, &apos;seleniumbase&apos;: &apos;3.5.8&apos;}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.10.5</td></tr></table>
+    <h2>Summary</h2>
+    <p>6 tests ran in 46.87 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="passed">3 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="failed">3 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>, <input checked="true" class="filter" data-test-result="rerun" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="rerun">0 rerun</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable numeric" col="duration">Duration</th>
+          <th>Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">tests/test_contact.py::Contacts::test_fill_contact_details</td>
+          <td class="col-duration">25.29</td>
+          <td class="col-links"><a class="url" href="https://practice.automationbro.com/contact/" target="_blank">URL</a> <a class="image" href="assets/tests_test_contact.py__Contacts__test_fill_contact_details_1_0.png" target="_blank">Screenshot</a> </td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="image"><a href="assets/tests_test_contact.py__Contacts__test_fill_contact_details_1_0.png"><img src="assets/tests_test_contact.py__Contacts__test_fill_contact_details_1_0.png"/></a></div>
+            <div class="log">[gw2] win32 -- Python 3.10.5 C:\Users\shash\PycharmProjects\pythonSelenium\venv\Scripts\python.exe<br/><br/>self = &lt;tests.test_contact.Contacts testMethod=test_fill_contact_details&gt;<br/><br/>    def test_fill_contact_details(self):<br/>        # go to contacts page<br/>        self.open(&quot;https://practice.automationbro.com/contact/&quot;)<br/>        # fill the details<br/>        self.send_keys(&#x27;.contact-name input&#x27;, &#x27;Test User&#x27;)<br/>        self.send_keys(&#x27;.contact-email input&#x27;, &#x27;testemail@gmail.com&#x27;)<br/>        self.send_keys(&#x27;.contact-phone input&#x27;, &#x27;8965896589&#x27;)<br/>        self.send_keys(&#x27;.contact-message textarea&#x27;, &#x27;This is text area test message&#x27;)<br/>        # submit<br/>        self.click(&quot;//*[starts-with(@id,&#x27;evf-submit&#x27;)]&quot;)<br/>        # check message displayed<br/>&gt;       self.assert_text(&quot;Thanks for  us! We will be in touch with you shortly&quot;, &#x27;//div[@role=&quot;alert&quot;]&#x27;)<br/><br/>tests\test_contact.py:16: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/>venv\lib\site-packages\seleniumbase\fixtures\base_case.py:10294: in assert_text<br/>    self.wait_for_text_visible(text, selector, by=by, timeout=timeout)<br/>venv\lib\site-packages\seleniumbase\fixtures\base_case.py:10219: in wait_for_text_visible<br/>    return page_actions.wait_for_text_visible(<br/>venv\lib\site-packages\seleniumbase\fixtures\page_actions.py:535: in wait_for_text_visible<br/>    timeout_exception(TextNotVisibleException, message)<br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>exception = &lt;class &#x27;seleniumbase.common.exceptions.TextNotVisibleException&#x27;&gt;<br/>message = &#x27;Expected text substring {Thanks for  us! We will be in touch with you shortly} for {//div[@role=&quot;alert&quot;]} was not visible after 7 seconds!\n (The string searched was {Thanks for contacting us! We will be in touch with you shortly})&#x27;<br/><br/>    def timeout_exception(exception, message):<br/>        exc, msg = shared_utils.format_exc(exception, message)<br/>&gt;       raise exc(msg)<br/><span class="error">E       seleniumbase.common.exceptions.TextNotVisibleException: Message: </span><br/><span class="error">E        Expected text substring {Thanks for  us! We will be in touch with you shortly} for {//div[@role=&quot;alert&quot;]} was not visible after 7 seconds!</span><br/><span class="error">E        (The string searched was {Thanks for contacting us! We will be in touch with you shortly})</span><br/><br/>venv\lib\site-packages\seleniumbase\fixtures\page_actions.py:186: TextNotVisibleException<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">tests/test_buy_product.py::BuyProduct::test_buy_product</td>
+          <td class="col-duration">25.44</td>
+          <td class="col-links"><a class="url" href="https://practice.automationbro.com/cart/" target="_blank">URL</a> <a class="image" href="assets/tests_test_buy_product.py__BuyProduct__test_buy_product_1_0.png" target="_blank">Screenshot</a> </td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="image"><a href="assets/tests_test_buy_product.py__BuyProduct__test_buy_product_1_0.png"><img src="assets/tests_test_buy_product.py__BuyProduct__test_buy_product_1_0.png"/></a></div>
+            <div class="log">[gw1] win32 -- Python 3.10.5 C:\Users\shash\PycharmProjects\pythonSelenium\venv\Scripts\python.exe<br/><br/>self = &lt;tests.test_buy_product.BuyProduct testMethod=test_buy_product&gt;<br/><br/>    def test_buy_product(self):<br/>        Product.openProductPage(self)<br/>        Product.addItemToCart(self)<br/>        # check cart quantity<br/>        self.assert_text(&quot;1&quot;, Cart.quantity_input)<br/>        # change quantity<br/>        self.set_value(Cart.quantity_input, &quot;2&quot;)<br/>        self.send_keys(Cart.quantity_input, Keys.RETURN)<br/>        self.click(Cart.update_cart_button)<br/>        # wait for amount to update<br/>        self.wait_for_element_visible(Cart.loading_overlay)<br/>        self.wait_for_element_not_visible(Cart.loading_overlay)<br/>        # assert updated subtotal<br/>        # price = self.get_text(Cart.total_cart_price)<br/>&gt;       self.assert_text(&#x27;$000.00&#x27;, Cart.total_cart_price)<br/><br/>tests\test_buy_product.py:24: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/>venv\lib\site-packages\seleniumbase\fixtures\base_case.py:10294: in assert_text<br/>    self.wait_for_text_visible(text, selector, by=by, timeout=timeout)<br/>venv\lib\site-packages\seleniumbase\fixtures\base_case.py:10219: in wait_for_text_visible<br/>    return page_actions.wait_for_text_visible(<br/>venv\lib\site-packages\seleniumbase\fixtures\page_actions.py:535: in wait_for_text_visible<br/>    timeout_exception(TextNotVisibleException, message)<br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>exception = &lt;class &#x27;seleniumbase.common.exceptions.TextNotVisibleException&#x27;&gt;<br/>message = &quot;Expected text substring {$000.00} for {//div[@class=&#x27;cart_totals&#x27; or @class=&#x27;cart_totals &#x27;]//tr[2]//bdi} was not visible after 7 seconds!\n (The string searched was {$800.00})&quot;<br/><br/>    def timeout_exception(exception, message):<br/>        exc, msg = shared_utils.format_exc(exception, message)<br/>&gt;       raise exc(msg)<br/><span class="error">E       seleniumbase.common.exceptions.TextNotVisibleException: Message: </span><br/><span class="error">E        Expected text substring {$000.00} for {//div[@class=&#x27;cart_totals&#x27; or @class=&#x27;cart_totals &#x27;]//tr[2]//bdi} was not visible after 7 seconds!</span><br/><span class="error">E        (The string searched was {$800.00})</span><br/><br/>venv\lib\site-packages\seleniumbase\fixtures\page_actions.py:186: TextNotVisibleException<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">tests/test_home.py::HomeTest::test_home_page</td>
+          <td class="col-duration">21.09</td>
+          <td class="col-links"><a class="url" href="https://practice.automationbro.com/" target="_blank">URL</a> <a class="image" href="assets/tests_test_home.py__HomeTest__test_home_page_1_0.png" target="_blank">Screenshot</a> </td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="image"><a href="assets/tests_test_home.py__HomeTest__test_home_page_1_0.png"><img src="assets/tests_test_home.py__HomeTest__test_home_page_1_0.png"/></a></div>
+            <div class="log">[gw0] win32 -- Python 3.10.5 C:\Users\shash\PycharmProjects\pythonSelenium\venv\Scripts\python.exe<br/><br/>self = &lt;tests.test_home.HomeTest testMethod=test_home_page&gt;, title = &#x27;Practice E-Commerce Site – Automation Br&#x27;<br/><br/>    def assert_title(self, title):<br/>        &quot;&quot;&quot;Asserts that the web page title matches the expected title.<br/>        When a web page initially loads, the title starts as the URL,<br/>            but then the title switches over to the actual page title.<br/>        In Recorder Mode, this assertion is skipped because the Recorder<br/>            changes the page title to the selector of the hovered element.<br/>        &quot;&quot;&quot;<br/>        self.wait_for_ready_state_complete()<br/>        expected = title.strip()<br/>        actual = self.get_page_title().strip()<br/>        error = (<br/>            &quot;Expected page title [%s] does not match the actual title [%s]!&quot;<br/>        )<br/>        try:<br/>            if not self.recorder_mode:<br/>&gt;               self.assertEqual(expected, actual, error % (expected, actual))<br/><br/>venv\lib\site-packages\seleniumbase\fixtures\base_case.py:6125: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>self = &lt;tests.test_home.HomeTest testMethod=test_home_page&gt;, first = &#x27;Practice E-Commerce Site – Automation Br&#x27;, second = &#x27;Practice E-Commerce Site – Automation Bro&#x27;<br/>msg = &#x27;Expected page title [Practice E-Commerce Site – Automation Br] does not match the actual title [Practice E-Commerce Site – Automation Bro]!&#x27;<br/><br/>    def assertEqual(self, first, second, msg=None):<br/>        &quot;&quot;&quot;Fail if the two objects are unequal as determined by the &#x27;==&#x27;<br/>           operator.<br/>        &quot;&quot;&quot;<br/>        assertion_func = self._getAssertEqualityFunc(first, second)<br/>&gt;       assertion_func(first, second, msg=msg)<br/><br/>..\..\AppData\Local\Programs\Python\Python310\lib\unittest\case.py:845: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>self = &lt;tests.test_home.HomeTest testMethod=test_home_page&gt;, first = &#x27;Practice E-Commerce Site – Automation Br&#x27;, second = &#x27;Practice E-Commerce Site – Automation Bro&#x27;<br/>msg = &#x27;Expected page title [Practice E-Commerce Site – Automation Br] does not match the actual title [Practice E-Commerce Site – Automation Bro]!&#x27;<br/><br/>    def assertMultiLineEqual(self, first, second, msg=None):<br/>        &quot;&quot;&quot;Assert that two multi-line strings are equal.&quot;&quot;&quot;<br/>        self.assertIsInstance(first, str, &#x27;First argument is not a string&#x27;)<br/>        self.assertIsInstance(second, str, &#x27;Second argument is not a string&#x27;)<br/>    <br/>        if first != second:<br/>            # don&#x27;t use difflib if the strings are too long<br/>            if (len(first) &gt; self._diffThreshold or<br/>                len(second) &gt; self._diffThreshold):<br/>                self._baseAssertEqual(first, second, msg)<br/>            firstlines = first.splitlines(keepends=True)<br/>            secondlines = second.splitlines(keepends=True)<br/>            if len(firstlines) == 1 and first.strip(&#x27;\r\n&#x27;) == first:<br/>                firstlines = [first + &#x27;\n&#x27;]<br/>                secondlines = [second + &#x27;\n&#x27;]<br/>            standardMsg = &#x27;%s != %s&#x27; % _common_shorten_repr(first, second)<br/>            diff = &#x27;\n&#x27; + &#x27;&#x27;.join(difflib.ndiff(firstlines, secondlines))<br/>            standardMsg = self._truncateMessage(standardMsg, diff)<br/>&gt;           self.fail(self._formatMessage(msg, standardMsg))<br/><br/>..\..\AppData\Local\Programs\Python\Python310\lib\unittest\case.py:1226: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>self = &lt;tests.test_home.HomeTest testMethod=test_home_page&gt;<br/>msg = &quot;&#x27;Practice E-Commerce Site – Automation Br&#x27; != &#x27;Practice E-Commerce Site – Automation Bro&#x27;\n- Practice E-Commerce Site...Practice E-Commerce Site – Automation Br] does not match the actual title [Practice E-Commerce Site – Automation Bro]!&quot;<br/><br/>    def fail(self, msg=None):<br/>        &quot;&quot;&quot;Fail immediately, with the given message.&quot;&quot;&quot;<br/>&gt;       raise self.failureException(msg)<br/><span class="error">E       AssertionError: &#x27;Practice E-Commerce Site – Automation Br&#x27; != &#x27;Practice E-Commerce Site – Automation Bro&#x27;</span><br/><span class="error">E       - Practice E-Commerce Site – Automation Br</span><br/><span class="error">E       + Practice E-Commerce Site – Automation Bro</span><br/><span class="error">E       ?                                         +</span><br/><span class="error">E        : Expected page title [Practice E-Commerce Site – Automation Br] does not match the actual title [Practice E-Commerce Site – Automation Bro]!</span><br/><br/>..\..\AppData\Local\Programs\Python\Python310\lib\unittest\case.py:675: AssertionError<br/><br/>During handling of the above exception, another exception occurred:<br/><br/>self = &lt;tests.test_home.HomeTest testMethod=test_home_page&gt;, title = &#x27;Practice E-Commerce Site – Automation Br&#x27;<br/><br/>    def assert_title(self, title):<br/>        &quot;&quot;&quot;Asserts that the web page title matches the expected title.<br/>        When a web page initially loads, the title starts as the URL,<br/>            but then the title switches over to the actual page title.<br/>        In Recorder Mode, this assertion is skipped because the Recorder<br/>            changes the page title to the selector of the hovered element.<br/>        &quot;&quot;&quot;<br/>        self.wait_for_ready_state_complete()<br/>        expected = title.strip()<br/>        actual = self.get_page_title().strip()<br/>        error = (<br/>            &quot;Expected page title [%s] does not match the actual title [%s]!&quot;<br/>        )<br/>        try:<br/>            if not self.recorder_mode:<br/>                self.assertEqual(expected, actual, error % (expected, actual))<br/>        except Exception:<br/>            self.wait_for_ready_state_complete()<br/>            time.sleep(settings.MINI_TIMEOUT)<br/>            actual = self.get_page_title().strip()<br/>            try:<br/>&gt;               self.assertEqual(expected, actual, error % (expected, actual))<br/><br/>venv\lib\site-packages\seleniumbase\fixtures\base_case.py:6131: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>self = &lt;tests.test_home.HomeTest testMethod=test_home_page&gt;, first = &#x27;Practice E-Commerce Site – Automation Br&#x27;, second = &#x27;Practice E-Commerce Site – Automation Bro&#x27;<br/>msg = &#x27;Expected page title [Practice E-Commerce Site – Automation Br] does not match the actual title [Practice E-Commerce Site – Automation Bro]!&#x27;<br/><br/>    def assertEqual(self, first, second, msg=None):<br/>        &quot;&quot;&quot;Fail if the two objects are unequal as determined by the &#x27;==&#x27;<br/>           operator.<br/>        &quot;&quot;&quot;<br/>        assertion_func = self._getAssertEqualityFunc(first, second)<br/>&gt;       assertion_func(first, second, msg=msg)<br/><br/>..\..\AppData\Local\Programs\Python\Python310\lib\unittest\case.py:845: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>self = &lt;tests.test_home.HomeTest testMethod=test_home_page&gt;, first = &#x27;Practice E-Commerce Site – Automation Br&#x27;, second = &#x27;Practice E-Commerce Site – Automation Bro&#x27;<br/>msg = &#x27;Expected page title [Practice E-Commerce Site – Automation Br] does not match the actual title [Practice E-Commerce Site – Automation Bro]!&#x27;<br/><br/>    def assertMultiLineEqual(self, first, second, msg=None):<br/>        &quot;&quot;&quot;Assert that two multi-line strings are equal.&quot;&quot;&quot;<br/>        self.assertIsInstance(first, str, &#x27;First argument is not a string&#x27;)<br/>        self.assertIsInstance(second, str, &#x27;Second argument is not a string&#x27;)<br/>    <br/>        if first != second:<br/>            # don&#x27;t use difflib if the strings are too long<br/>            if (len(first) &gt; self._diffThreshold or<br/>                len(second) &gt; self._diffThreshold):<br/>                self._baseAssertEqual(first, second, msg)<br/>            firstlines = first.splitlines(keepends=True)<br/>            secondlines = second.splitlines(keepends=True)<br/>            if len(firstlines) == 1 and first.strip(&#x27;\r\n&#x27;) == first:<br/>                firstlines = [first + &#x27;\n&#x27;]<br/>                secondlines = [second + &#x27;\n&#x27;]<br/>            standardMsg = &#x27;%s != %s&#x27; % _common_shorten_repr(first, second)<br/>            diff = &#x27;\n&#x27; + &#x27;&#x27;.join(difflib.ndiff(firstlines, secondlines))<br/>            standardMsg = self._truncateMessage(standardMsg, diff)<br/>&gt;           self.fail(self._formatMessage(msg, standardMsg))<br/><br/>..\..\AppData\Local\Programs\Python\Python310\lib\unittest\case.py:1226: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>self = &lt;tests.test_home.HomeTest testMethod=test_home_page&gt;<br/>msg = &quot;&#x27;Practice E-Commerce Site – Automation Br&#x27; != &#x27;Practice E-Commerce Site – Automation Bro&#x27;\n- Practice E-Commerce Site...Practice E-Commerce Site – Automation Br] does not match the actual title [Practice E-Commerce Site – Automation Bro]!&quot;<br/><br/>    def fail(self, msg=None):<br/>        &quot;&quot;&quot;Fail immediately, with the given message.&quot;&quot;&quot;<br/>&gt;       raise self.failureException(msg)<br/><span class="error">E       AssertionError: &#x27;Practice E-Commerce Site – Automation Br&#x27; != &#x27;Practice E-Commerce Site – Automation Bro&#x27;</span><br/><span class="error">E       - Practice E-Commerce Site – Automation Br</span><br/><span class="error">E       + Practice E-Commerce Site – Automation Bro</span><br/><span class="error">E       ?                                         +</span><br/><span class="error">E        : Expected page title [Practice E-Commerce Site – Automation Br] does not match the actual title [Practice E-Commerce Site – Automation Bro]!</span><br/><br/>..\..\AppData\Local\Programs\Python\Python310\lib\unittest\case.py:675: AssertionError<br/><br/>During handling of the above exception, another exception occurred:<br/><br/>self = &lt;tests.test_home.HomeTest testMethod=test_home_page&gt;<br/><br/>    def test_home_page(self):<br/>&gt;       self.assert_title(&quot;Practice E-Commerce Site – Automation Br&quot;)<br/><br/>tests\test_home.py:20: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/>venv\lib\site-packages\seleniumbase\fixtures\base_case.py:6136: in assert_title<br/>    self.assertEqual(expected, actual, error % (expected, actual))<br/><span class="error">E   AssertionError: &#x27;Practice E-Commerce Site – Automation Br&#x27; != &#x27;Practice E-Commerce Site – Automation Bro&#x27;</span><br/><span class="error">E   - Practice E-Commerce Site – Automation Br</span><br/><span class="error">E   + Practice E-Commerce Site – Automation Bro</span><br/><span class="error">E   ?                                         +</span><br/><span class="error">E    : Expected page title [Practice E-Commerce Site – Automation Br] does not match the actual title [Practice E-Commerce Site – Automation Bro]!</span><br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_buy_product.py::BuyProduct::test_Find_Product</td>
+          <td class="col-duration">23.70</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_upload_file.py::FileUpload::test_upload</td>
+          <td class="col-duration">13.76</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_home.py::HomeTest::test_menu_links</td>
+          <td class="col-duration">15.94</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody></table></body></html>
